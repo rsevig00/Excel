@@ -7,6 +7,7 @@ import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -38,6 +39,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -52,14 +54,21 @@ public class InterfazExcelAux extends JFrame {
 	int colSeleccionada = 1;
 	JLabel celda;
 	DefaultTableModel tab;
-	Queue<String> cola;
+	Queue<CeldaGuardada> colaUndo;
+	Queue<CeldaGuardada> colaRedo;
 	Dimension screenSize;
 	JFrame ventanaPrincipal;
+	boolean guardado;
+	String valor;
+	JMenuItem hacer;
+	JMenuItem deshacer;
+	CeldaGuardada ultimaCelda;
 
 	public InterfazExcelAux() {
 		screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 		pedirFilas();
-		cola = new LinkedList<String>();
+		colaUndo = new LinkedList<CeldaGuardada>();
+		colaRedo = new LinkedList<CeldaGuardada>();
 		JMenuBar menuBarra = new JMenuBar();
 		JMenu menu = new JMenu("Archivo");
 		JMenuItem archivar = new JMenuItem("Archivar");
@@ -74,8 +83,8 @@ public class InterfazExcelAux extends JFrame {
 		menu.add(cargar);
 		menu.add(nueva);
 		JMenu editar = new JMenu("Editar");
-		JMenuItem hacer = new JMenuItem("Adelante");
-		JMenuItem deshacer = new JMenuItem("Atras");
+		hacer = new JMenuItem("Adelante");
+		deshacer = new JMenuItem("Atras");
 		tab = new DefaultTableModel(fila + 1, col + 1) {
 			@Override
 			public boolean isCellEditable(int row, int column) {
@@ -86,6 +95,7 @@ public class InterfazExcelAux extends JFrame {
 				}
 			}
 		};
+		guardado = false;
 		JPanel botones = new JPanel();
 		JButton calcular = new JButton("Calcular");
 		JButton limpiar = new JButton("Limpiar");
@@ -95,13 +105,23 @@ public class InterfazExcelAux extends JFrame {
 		botones.add(calcular);
 		botones.add(limpiar);
 		botones.add(celda);
+		deshacer.setEnabled(false);
+		deshacer.addActionListener(new Undo());
+		KeyStroke ctrlZ = KeyStroke.getKeyStroke("control Z");
+		deshacer.setAccelerator(ctrlZ);
+		hacer.setEnabled(false);
+		hacer.addActionListener(new Redo());
+		KeyStroke mayusctrlZ = KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.SHIFT_MASK | KeyEvent.CTRL_MASK);
+		hacer.setAccelerator(mayusctrlZ);
 		editar.add(hacer);
 		editar.add(deshacer);
 		ventanaPrincipal = new JFrame();
 		tabla = new JTable(tab);
 		JPanel panel = new JPanel();
 		ventanaPrincipal.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		ventanaPrincipal.setBounds(0, 0, (int) screenSize.getWidth(), (int) screenSize.getHeight());
+		// ventanaPrincipal.setBounds(0, 0, (int) screenSize.getWidth(), (int)
+		// screenSize.getHeight());
+		ventanaPrincipal.setBounds(0, 0, 600, 600);
 		ventanaPrincipal.setVisible(true);
 		tabla.setRowHeight(25);
 		DefaultTableCellRenderer render = new DefaultTableCellRenderer() {
@@ -131,7 +151,7 @@ public class InterfazExcelAux extends JFrame {
 				return this;
 			}
 		};
-
+		valor = "";
 		menuBarra.add(menu);
 		menuBarra.add(editar);
 		ventanaPrincipal.setJMenuBar(menuBarra);
@@ -196,14 +216,15 @@ public class InterfazExcelAux extends JFrame {
 		ventanaPrincipal.addWindowListener(new CerrandoPrograma());
 	}
 
+	@SuppressWarnings("unlikely-arg-type")
 	public void pedirFilas() {
 		String filaS;
 		filaS = JOptionPane.showInputDialog("Introduzca las filas: ");
 		try {
-			fila = Integer.parseInt(filaS);
-			if (fila == JOptionPane.CLOSED_OPTION) {
-				System.exit(0);
+			if (filaS.equals(JOptionPane.CLOSED_OPTION)) {
+				// System.exit(0);
 			}
+			fila = Integer.parseInt(filaS);
 			if (fila < 0) {
 				JOptionPane.showMessageDialog(null, "Los valores deben ser positivos", "Error entrada",
 						JOptionPane.ERROR_MESSAGE);
@@ -212,9 +233,11 @@ public class InterfazExcelAux extends JFrame {
 				pedirCols();
 			}
 		} catch (NumberFormatException e) {
-			JOptionPane.showMessageDialog(null, "Los valores deben ser númericos", "Error entrada",
+			JOptionPane.showMessageDialog(null, "Los valores deben ser numericos", "Error entrada",
 					JOptionPane.ERROR_MESSAGE);
 			pedirFilas();
+		} catch (NullPointerException e) {
+			System.exit(0);
 		}
 	}
 
@@ -222,6 +245,9 @@ public class InterfazExcelAux extends JFrame {
 		String colS;
 		colS = JOptionPane.showInputDialog("Introduzca las columnas: ");
 		try {
+			if (colS.equals(JOptionPane.CLOSED_OPTION)) {
+				// System.exit(0);
+			}
 			col = Integer.parseInt(colS);
 			if (col == JOptionPane.CLOSED_OPTION) {
 				System.exit(0);
@@ -232,20 +258,34 @@ public class InterfazExcelAux extends JFrame {
 				pedirCols();
 			}
 		} catch (NumberFormatException e) {
-			JOptionPane.showMessageDialog(null, "Los valores deben ser númericos", "Error entrada",
+			JOptionPane.showMessageDialog(null, "Los valores deben ser nï¿½mericos", "Error entrada",
 					JOptionPane.ERROR_MESSAGE);
 			pedirCols();
+		} catch (NullPointerException e) {
+			System.exit(0);
 		}
 	}
 
-	public void invierteCola() {
-		Stack<String> stack = new Stack<>();
-		while (!cola.isEmpty()) {
-			stack.add(cola.peek());
-			cola.remove();
+	public void invierteColaUndo() {
+		Stack<CeldaGuardada> stack = new Stack<>();
+		while (!colaUndo.isEmpty()) {
+			stack.add(colaUndo.peek());
+			colaUndo.remove();
 		}
 		while (!stack.isEmpty()) {
-			cola.add(stack.peek());
+			colaUndo.add(stack.peek());
+			stack.pop();
+		}
+	}
+
+	public void invierteColaRedo() {
+		Stack<CeldaGuardada> stack = new Stack<>();
+		while (!colaRedo.isEmpty()) {
+			stack.add(colaRedo.peek());
+			colaRedo.remove();
+		}
+		while (!stack.isEmpty()) {
+			colaRedo.add(stack.peek());
 			stack.pop();
 		}
 	}
@@ -253,11 +293,19 @@ public class InterfazExcelAux extends JFrame {
 	class EscuchaTabla extends MouseAdapter {
 		@Override
 		public void mousePressed(MouseEvent e) {
-			invierteCola();
 			int filaActual = tabla.getSelectedRow();
 			int colActual = tabla.getSelectedColumn();
 			String valor2 = String.valueOf(tab.getValueAt(filaSeleccionada, colSeleccionada));
-			if (valor2.length() == 0) {
+			if (!valor.equals(valor2) && valor.trim().length() != 0 && valor2.trim().length() != 0) {
+				System.out.println("Almacenando: " + filaSeleccionada + "" + colSeleccionada + " --> " + valor);
+				CeldaGuardada celda = new CeldaGuardada(filaSeleccionada, colSeleccionada, valor, valor2);
+				colaUndo.add(celda);
+				deshacer.setEnabled(true);
+				invierteColaUndo();
+				guardado = false;
+			}
+			valor = "";
+			if (valor2.trim().length() == 0) {
 				tabla.setValueAt(0, filaSeleccionada, colSeleccionada);
 			}
 			if (filaActual != 0 && colActual != 0) {
@@ -267,7 +315,7 @@ public class InterfazExcelAux extends JFrame {
 				String fila = String.valueOf(tab.getValueAt(tabla.getSelectedRow(), 0));
 				String col = String.valueOf(tab.getValueAt(0, tabla.getSelectedColumn()));
 				celda.setText(col + fila);
-				String valor = String.valueOf(tab.getValueAt(tabla.getSelectedRow(), tabla.getSelectedColumn()));
+				valor = String.valueOf(tab.getValueAt(tabla.getSelectedRow(), tabla.getSelectedColumn()));
 				if (valor.trim().charAt(0) == '0') {
 					tabla.setValueAt("", tabla.getSelectedRow(), tabla.getSelectedColumn());
 				}
@@ -291,6 +339,13 @@ public class InterfazExcelAux extends JFrame {
 	class CalculaFormulas implements ActionListener {
 		@Override
 		public void actionPerformed(ActionEvent e) {
+			for (int i = 0; i < fila; i++) {
+				for (int j = 0; j < col; j++) {
+					if (String.valueOf(tabla.getValueAt(i + 1, j + 1)).trim().length() == 0) {
+						tabla.setValueAt(0, i + 1, j + 1);
+					}
+				}
+			}
 			Excel hoja = new Excel(fila, col);
 			String[][] valores = new String[fila][col];
 			for (int i = 0; i < fila; i++) {
@@ -298,12 +353,17 @@ public class InterfazExcelAux extends JFrame {
 					valores[i][j] = String.valueOf(tabla.getValueAt(i + 1, j + 1)).trim();
 				}
 			}
-			hoja.esNumerico(valores);
-			valores = hoja.dameHoja();
-			for (int i = 0; i < fila; i++) {
-				for (int j = 0; j < col; j++) {
-					tabla.setValueAt(valores[i][j], i + 1, j + 1);
+			try {
+				hoja.esNumerico(valores);
+				valores = hoja.dameHoja();
+				for (int i = 0; i < fila; i++) {
+					for (int j = 0; j < col; j++) {
+						tabla.setValueAt(valores[i][j], i + 1, j + 1);
+					}
 				}
+			} catch (NumberFormatException e1) {
+				JOptionPane.showMessageDialog(null, "Los valores deben ser numericos", "Error entrada",
+						JOptionPane.ERROR_MESSAGE);
 			}
 		}
 	}
@@ -502,7 +562,7 @@ public class InterfazExcelAux extends JFrame {
 				} catch (IOException e1) {
 					e1.printStackTrace();
 				} catch (NumberFormatException e1) {
-					JOptionPane.showMessageDialog(null, "Los valores deben ser númericos", "Error entrada",
+					JOptionPane.showMessageDialog(null, "Los valores deben ser nï¿½mericos", "Error entrada",
 							JOptionPane.ERROR_MESSAGE);
 				}
 			}
@@ -529,6 +589,7 @@ public class InterfazExcelAux extends JFrame {
 					FileWriter escribir = new FileWriter(guardar.getSelectedFile() + ".txt");
 					escribir.write(valores);
 					escribir.close();
+					guardado = true;
 				} catch (IOException e1) {
 					e1.printStackTrace();
 				}
@@ -537,11 +598,65 @@ public class InterfazExcelAux extends JFrame {
 	}
 
 	class CerrandoPrograma extends WindowAdapter {
+		@Override
 		public void windowClosing(WindowEvent e) {
-			int result = JOptionPane.showConfirmDialog(null,
-					"Quieres cerrar el programa?", "Cerrar", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-			if (result == JOptionPane.YES_OPTION) {
-				System.exit(0);
+			if (guardado) {
+				int result = JOptionPane.showConfirmDialog(null, "Quieres cerrar el programa?", "Cerrar",
+						JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+				if (result == JOptionPane.YES_OPTION) {
+					System.exit(0);
+				}
+			} else {
+				int result = JOptionPane.showConfirmDialog(null, "Tienes datos sin guardar quieres guardar?", "Cerrar",
+						JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+				if (result == JOptionPane.YES_OPTION) {
+					new ArchivarArchivo().actionPerformed(null);
+					System.exit(0);
+				} else if (result == JOptionPane.NO_OPTION) {
+					System.exit(0);
+				}
+			}
+		}
+	}
+
+	class Undo implements ActionListener {
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			if (colaUndo.size() != 0) {
+				ultimaCelda = colaUndo.poll();
+				colaRedo.add(ultimaCelda);
+				int fila = ultimaCelda.getFila();
+				int col = ultimaCelda.getCol();
+				String valor = ultimaCelda.getValor();
+				System.out.println("Deshacer: " + fila + "" + col + " --> " + valor);
+				tabla.setValueAt(valor, fila, col);
+				invierteColaUndo();
+				invierteColaRedo();
+				hacer.setEnabled(true);
+			}
+			if (colaUndo.size() == 0) {
+				deshacer.setEnabled(false);
+			}
+		}
+	}
+
+	class Redo implements ActionListener {
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			if (colaRedo.size() != 0) {
+				ultimaCelda = colaRedo.poll();
+				int fila = ultimaCelda.getFila();
+				int col = ultimaCelda.getCol();
+				String valor = ultimaCelda.getValorFinal();
+				System.out.println("Hacer: " + fila + "" + col + " --> " + valor);
+				tabla.setValueAt(valor, fila, col);
+				invierteColaRedo();
+				colaUndo.add(ultimaCelda);
+				invierteColaUndo();
+				deshacer.setEnabled(true);
+			}
+			if (colaRedo.size() == 0) {
+				hacer.setEnabled(false);
 			}
 		}
 	}

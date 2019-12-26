@@ -1,6 +1,7 @@
 
-
 import java.util.*;
+
+import javax.swing.JOptionPane;
 
 /**
  * Clase que almacena todos las hojas de nuestro programa Excel
@@ -24,9 +25,9 @@ public class Excel {
 	 * @throws ExcelException
 	 */
 	public Excel(int filas, int cols) {
-		this.filas=filas;
-		this.cols=cols;
-		hoja=new Hoja(filas, cols);
+		this.filas = filas;
+		this.cols = cols;
+		hoja = new Hoja(filas, cols);
 	}
 
 	/**
@@ -69,7 +70,7 @@ public class Excel {
 						case 2:
 							break;
 						case 3:
-							valor = esSuma(valor,filaActual, columnaActual);
+							valor = esSuma(valor, filaActual, columnaActual);
 							filaActual = "";
 							columnaActual = "";
 							break;
@@ -86,21 +87,21 @@ public class Excel {
 						columnaActual = "";
 					}
 					valorS = String.valueOf(valor);
-					hoja.buscaCeldaCorrecta(j, k).setValor(valorS+" ");
+					hoja.buscaCeldaCorrecta(j, k).setValor(valorS + " ");
 					valor = 0;
 				}
 			}
 		}
 	}
-	
-	public String[][] dameHoja(){
-		String[][] datos=new String[filas][cols];
-		for(int i=0;i<filas;i++) {
-			for(int j=0;j<cols;j++) {
-				datos[i][j]=hoja.buscaCeldaCorrecta(i, j).getValor();
+
+	public String[][] dameHoja() {
+		String[][] datos = new String[filas][cols];
+		for (int i = 0; i < filas; i++) {
+			for (int j = 0; j < cols; j++) {
+				datos[i][j] = hoja.buscaCeldaCorrecta(i, j).getValor();
 			}
 		}
-		return datos;		
+		return datos;
 	}
 
 	/**
