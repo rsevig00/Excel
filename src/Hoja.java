@@ -31,8 +31,8 @@ public class Hoja {
 	 */
 	public void creaCelda() {
 		String actual="";
-		int contAux=0;
-		int contAux2=0;
+		int contAux=26;
+		int contAux2=702;
 		for(int i=0; i<filas; i++) {
 			for (int j=0; j<cols; j++) {
 				if(j<26) {
@@ -48,6 +48,12 @@ public class Hoja {
 					Celda celda=new Celda((i+1), actual);
 					celdas[i][j]=celda;
 				} else {
+					if (j > 702 && (i) % 26 == 0) {
+						contAux++;
+					}
+					if (j > 702 && (i - 26) % 676 == 0) {
+						contAux2++;
+					}
 					char colum=(char) ((j%26)+65);
 					char columAux=(char)(contAux+65);
 					char columAux2=(char)(contAux2+65);
@@ -56,12 +62,6 @@ public class Hoja {
 					actual+=colum;
 					Celda celda=new Celda((i+1), actual);
 					celdas[i][j]=celda;
-					if((j+1)%26==0) {
-						contAux++;
-					}
-					if((j+1)%702==0) {
-						contAux2++;
-					}
 				}
 				actual="";
 			}

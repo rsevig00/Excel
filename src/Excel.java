@@ -1,6 +1,3 @@
-
-import java.util.*;
-
 import javax.swing.JOptionPane;
 
 /**
@@ -35,7 +32,7 @@ public class Excel {
 	 * 
 	 * @param valorCeldas
 	 */
-	public void esNumerico(String valorCeldas[][]) {
+	public int esNumerico(String valorCeldas[][]) {
 		for (int i = 0; i < filas; i++) {
 			for (int j = 0; j < cols; j++) {
 				if (valorCeldas[i][j].charAt(0) != '=') {
@@ -43,7 +40,11 @@ public class Excel {
 				}
 			}
 		}
-		esUnaFormula(valorCeldas);
+		if(esUnaFormula(valorCeldas)== -1) {
+			return -1;
+		} else {
+			return 1;
+		}
 	}
 
 	/**
@@ -51,7 +52,7 @@ public class Excel {
 	 * 
 	 * @param valorCelda valor que tendra la celda.
 	 */
-	public void esUnaFormula(String valorCeldas[][]) {
+	public int esUnaFormula(String valorCeldas[][]) {
 		int valor = 0;
 		String filaActual = "";
 		String columnaActual = "";
@@ -74,26 +75,28 @@ public class Excel {
 							filaActual = "";
 							columnaActual = "";
 							break;
-						case 4:
-							break;
-						default:
-							System.out.println("Formato no valido");
-							System.exit(0);
 						}
 					}
 					if (filaActual != "" && columnaActual != "") {
 						valor = esSuma(valor, filaActual, columnaActual);
 						filaActual = "";
 						columnaActual = "";
+						valorS = String.valueOf(valor);
+						hoja.buscaCeldaCorrecta(j, k).setValor(valorS + " ");
+						valor = 0;
+					} else {
+						return -1;
 					}
-					valorS = String.valueOf(valor);
-					hoja.buscaCeldaCorrecta(j, k).setValor(valorS + " ");
-					valor = 0;
 				}
 			}
 		}
+		return 1;
 	}
 
+	/**
+	 * Devuelve los datos de la hoja excel
+	 * @return
+	 */
 	public String[][] dameHoja() {
 		String[][] datos = new String[filas][cols];
 		for (int i = 0; i < filas; i++) {
@@ -119,8 +122,6 @@ public class Excel {
 			return 2;
 		} else if (caracter == '+') {
 			return 3;
-		} else if (caracter == '=') {
-			return 4;
 		} else {
 			return 5;
 		}
@@ -129,27 +130,31 @@ public class Excel {
 	/**
 	 * Realiza la suma en caso de ser una formula.
 	 * 
-	 * @param valor
-	 * @param fila
-	 * @param columna
-	 * @param hoja
-	 * @return
+	 * @param valor que ya se tiene anteriormente
+	 * @param fila de la celda a sumar
+	 * @param columna de la celda a sumar
+	 * @return suma
 	 */
 	public int esSuma(int valor, String fila, String columna) {
 		String valorSumar;
 		int colAux = 0;
+		if(columna.length()>3) {
+			throw new ArrayIndexOutOfBoundsException();
+		}
 		if (columna.length() == 1) {
 			colAux = Character.getNumericValue(columna.charAt(0)) - 10;
 			valorSumar = hoja.buscaCeldaCorrecta(Integer.valueOf(fila) - 1, colAux).getValor();
 			valor += Integer.parseInt(valorSumar.trim());
 		} else if (columna.length() == 2) {
-			colAux += Character.getNumericValue(columna.charAt(0)) - 10 + 26;
+			colAux=26;
+			colAux += (Character.getNumericValue(columna.charAt(0)) - 10) * 26;
 			colAux += Character.getNumericValue(columna.charAt(1)) - 10;
 			valorSumar = hoja.buscaCeldaCorrecta(Integer.valueOf(fila) - 1, colAux).getValor();
 			valor += Integer.parseInt(valorSumar.trim());
 		} else if (columna.length() == 3) {
-			colAux += Character.getNumericValue(columna.charAt(1)) - 10 + 702;
-			colAux += Character.getNumericValue(columna.charAt(1)) - 10 + 26;
+			colAux=702;
+			colAux += (Character.getNumericValue(columna.charAt(0)) - 10) * 676;
+			colAux += (Character.getNumericValue(columna.charAt(1)) - 10) * 26;
 			colAux += Character.getNumericValue(columna.charAt(2)) - 10;
 			valorSumar = hoja.buscaCeldaCorrecta(Integer.valueOf(fila) - 1, colAux).getValor();
 			valor += Integer.parseInt(valorSumar.trim());
